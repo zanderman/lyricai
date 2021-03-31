@@ -1,0 +1,31 @@
+# .gitignore
+
+# macOS files.
+.DS_Store
+Icon?
+![iI]con[_a-zA-Z0-9]
+
+# LaTeX files.
+*.pdf
+*.aux
+*.bit
+*.blg
+*.bbl
+*.lof
+*.log
+*.lot
+*.glo
+*.glx
+*.gxg
+*.gxs
+*.idx
+*.ilg
+*.ind
+*.out
+*.url
+*.svn
+*.toc
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.dvi
