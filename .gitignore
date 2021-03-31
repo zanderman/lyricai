@@ -1,5 +1,8 @@
 # .gitignore
 
+# Environment
+.env
+
 # macOS files.
 .DS_Store
 Icon?
