@@ -1,53 +1,104 @@
 """Lyrics dataset collection script.
 """
 import argparse
+import csv
+import concurrent.futures
 import json
 import lyricsgenius
 import os
 import sys
+from typing import Iterator, Union
+
+
+def get_song_lyrics(song: str, artist: str) -> Union[dict,None]:
+    """Searches Genius for song details based on song name and artist.
+
+    Args:
+        song (str): Title of song
+        artist (str): Name of artist
+
+    Returns:
+        Union[dict,None]: Song details (from JSON) or `None` if no results.
+    """
+    genius = lyricsgenius.Genius(
+        skip_non_songs=True,
+        verbose=False,
+    )
+
+    songdetails = genius.search_song(
+        title=song,
+        artist=artist,
+        get_full_info=True,
+        )
+
+    if songdetails:
+        return songdetails.to_dict()
+    else:
+        return None
+
+
+def collect_from_csv(csvfile: str) -> Iterator[dict]:
+    """Searches Genius for songs within a CSV file.
+
+    Args:
+        csvfile (str):  Path to CSV file.
+
+    Returns:
+        Iterator[dict]: Iterator to song dictionary objects with metadata.
+    """
+
+    # Spin-up a threadpool to speed-up the download process.
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_songtup = {} # key=future, value=tuple(song,artist,)
+
+        # Read the contents of the song file.
+        with open(csvfile, 'r') as fp:
+            songreader = csv.reader(fp, delimiter=',', quotechar='"')
+
+            # Submit each song to the threadpool for download.
+            for song,artist in songreader:
+                song = song.strip()
+                artist = artist.split(',')[0].strip() # Only get first artist if a list.
+                future = executor.submit(get_song_lyrics, song=song, artist=artist)
+                future_to_songtup[future] = (song, artist,)
+
+            # Yield from threadpool as jobs are completed.
+            for future in concurrent.futures.as_completed(future_to_songtup):
+                try:
+                    songdict = future.result()
+                except:
+                    songdict = None
+                finally:
+                    yield (songdict,*future_to_songtup[future],)
 
 
 def get_options():
     """Helper to get CLI options.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a','--artists', help='Comma separated artist list')
+    parser.add_argument('csvfile', help='CSV list of "song,artist"')
     parser.add_argument('-o','--output', default='./dataset', help='Output directory path')
-    parser.add_argument('-v','--genius-verbose', action='store_true', default=True, help='Change genius verbosity')
-    parser.add_argument('-n','--genius-max-songs', type=int, help='Maximum number of songs per artist')
-    parser.add_argument('-s','--genius-sort', default='popularity', help='Genius song sort order')
     return parser.parse_args()
 
 
 def cli(opts):
+    """Command-line program function.
+    """
 
-    # Create output directory if necessary.
-    if not os.path.exists(opts.output):
-        os.mkdir(opts.output)
-        print(f'Created output directory: {opts.output}')
-
-    # Create Genius client.
-    genius = lyricsgenius.Genius(
-        skip_non_songs=True,
-        verbose=opts.genius_verbose,
-    )
-
-    # Collect list of artists
-    if opts.artists:
-        artist_list = opts.artists.split(',')
+    # Determine if CSV file or STDIN.
+    if opts.csvfile:
+        csvfile = opts.csvfile
     else:
-        artist_list = list(sys.stdin)
+        csvfile = sys.stdin
 
-    # Iterate over each desired artist.
-    for name in artist_list:
-        try:
-            artist = genius.search_artist(name, sort=opts.genius_sort, max_songs=opts.genius_max_songs)
-            for song in artist.songs:
-                fname = os.path.join(opts.output, f"{song.id}.json")
-                with open(fname, 'w+') as fp:
-                    json.dump(song.to_dict(), fp)
-        except:
-            print(f"An exception occurred when processing artist {name}")
+    for songdict, song, artist in collect_from_csv(csvfile):
+        if songdict:
+            fname = os.path.join(opts.output, f"{songdict['id']}.json")
+            with open(fname, 'w+') as fp:
+                json.dump(songdict, fp)
+            print(f"[+] \"{song}\", \"{artist}\", \"{songdict['id']}\"", flush=True)
+        else:
+            print(f"[-] \"{song}\", \"{artist}\"", flush=True)
 
 
 if __name__ == '__main__':
