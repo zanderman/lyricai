@@ -85,7 +85,8 @@ def collect_from_artist_csv(csvfile: str, max_songs: int = None) -> Iterator[tup
             for future in concurrent.futures.as_completed(future_to_artist):
                 try:
                     songlist = future.result()
-                except:
+                except Exception as e:
+                    print(e, file=sys.stderr)
                     songlist = []
                 finally:
                     yield (songlist,future_to_artist[future],)
@@ -151,13 +152,17 @@ def cli(opts):
     else:
         csvfile = sys.stdin
 
+    # Create output directory.
+    if not os.path.exists(opts.output):
+        os.mkdir(opts.output)
+
     # CSV file contains song,artist.
     if opts.csv_song_artist:
 
         for songdict, song, artist in collect_from_song_artist_csv(csvfile):
             if songdict:
                 fname = os.path.join(opts.output, f"{songdict['id']}.json")
-                with open(fname, 'w+') as fp:
+                with open(fname, 'w') as fp:
                     json.dump(songdict, fp)
                 print(f"[+] \"{song}\", \"{artist}\", \"{songdict['id']}\"", flush=True)
             else:
@@ -169,7 +174,7 @@ def cli(opts):
         for songlist, artist in collect_from_artist_csv(csvfile, max_songs=opts.max_songs):
             for songdict in songlist:
                 fname = os.path.join(opts.output, f"{songdict['id']}.json")
-                with open(fname, 'w+') as fp:
+                with open(fname, 'w') as fp:
                     json.dump(songdict, fp)
                 print(f"\"{songdict['id']}\",\"{songdict['title']}\",\"{artist}\"", flush=True)
 
