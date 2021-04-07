@@ -3,6 +3,9 @@
 # Environment
 .env
 
+# Visual Studio Code
+.vscode/
+
 # macOS files.
 .DS_Store
 Icon?
