@@ -7,6 +7,10 @@ name = "pypi"
 requests = "*"
 lyricsgenius = "*"
 ipykernel = "*"
+torch = "*"
+matplotlib = "*"
+numpy = "*"
+torchvision = "*"
 
 [dev-packages]
 
