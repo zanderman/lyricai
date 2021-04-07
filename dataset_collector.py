@@ -164,9 +164,7 @@ def cli(opts):
                 fname = os.path.join(opts.output, f"{songdict['id']}.json")
                 with open(fname, 'w') as fp:
                     json.dump(songdict, fp)
-                print(f"[+] \"{song}\", \"{artist}\", \"{songdict['id']}\"", flush=True)
-            else:
-                print(f"[-] \"{song}\", \"{artist}\"", flush=True)
+                print(f"\"{songdict['id']}\",\"{songdict['title']}\",\"{artist}\"", flush=True)
 
     # CSV file contains artist only.
     elif opts.csv_artist:
