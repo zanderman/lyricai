@@ -10,21 +10,17 @@ import sys
 from typing import Iterator, Union, List
 
 
-def get_song_lyrics(song: str, artist: str) -> Union[dict,None]:
+def get_song_lyrics(genius: lyricsgenius.Genius, song: str, artist: str) -> Union[dict,None]:
     """Searches Genius for song details based on song name and artist.
 
     Args:
+        genius (lyricsgenius.Genius): LyricsGenius object to use for query.
         song (str): Title of song
         artist (str): Name of artist
 
     Returns:
         Union[dict,None]: Song details (from JSON) or `None` if no results.
     """
-    genius = lyricsgenius.Genius(
-        skip_non_songs=True,
-        verbose=False,
-    )
-
     songdetails = genius.search_song(
         title=song,
         artist=artist,
@@ -37,24 +33,23 @@ def get_song_lyrics(song: str, artist: str) -> Union[dict,None]:
         return None
 
 
-def get_top_songs_for_artist(artist: str, max_songs: int = None) -> List[dict]:
+def get_top_songs_for_artist(genius: lyricsgenius.Genius, artist: str, max_songs: int = None) -> List[dict]:
     """Searches Genius for the top songs for a given artist.
 
     Args:
+        genius (lyricsgenius.Genius): LyricsGenius object to use for query.
         artist (str): Name of artist
         max_songs (int, optional): Maximum number of songs to return.
 
     Returns:
         List[dict]: List of songs or empty if no results.
     """
-    genius = lyricsgenius.Genius(
-        skip_non_songs=True,
-        verbose=False,
-    )
-
     artist_obj = genius.search_artist(artist, max_songs=max_songs, sort='popularity')
 
-    return [song.to_dict() for song in artist_obj.songs]
+    if artist_obj:
+        return [song.to_dict() for song in artist_obj.songs]
+    else:
+        return []
 
 
 def collect_from_artist_csv(csvfile: str, max_songs: int = None) -> Iterator[tuple]:
@@ -68,6 +63,13 @@ def collect_from_artist_csv(csvfile: str, max_songs: int = None) -> Iterator[tup
         Iterator[tuple]: Iterator to song tuple of (song_dict,artist_name).
     """
 
+    # Create music genius.
+    genius = lyricsgenius.Genius(
+        skip_non_songs=True,
+        verbose=False,
+        sleep_time=1,
+    )
+
     # Spin-up a threadpool to speed-up the download process.
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future_to_artist = {} # key=future, value=tuple(song,artist,)
@@ -78,7 +80,7 @@ def collect_from_artist_csv(csvfile: str, max_songs: int = None) -> Iterator[tup
             # Submit each song to the threadpool for download.
             for artist in fp:
                 artist = artist.strip() # Remove extra whitespace.
-                future = executor.submit(get_top_songs_for_artist, artist=artist, max_songs=max_songs)
+                future = executor.submit(get_top_songs_for_artist, genius=genius, artist=artist, max_songs=max_songs)
                 future_to_artist[future] = artist
 
             # Yield from threadpool as jobs are completed.
@@ -102,6 +104,13 @@ def collect_from_song_artist_csv(csvfile: str) -> Iterator[tuple]:
         Iterator[tuple]: Iterator to song tuple of (song_dict,song_title,artist_name).
     """
 
+    # Create music genius.
+    genius = lyricsgenius.Genius(
+        skip_non_songs=True,
+        verbose=False,
+        sleep_time=1,
+    )
+
     # Spin-up a threadpool to speed-up the download process.
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future_to_songtup = {} # key=future, value=tuple(song,artist,)
@@ -114,7 +123,7 @@ def collect_from_song_artist_csv(csvfile: str) -> Iterator[tuple]:
             for song,artist in songreader:
                 song = song.strip()
                 artist = artist.split(',')[0].strip() # Only get first artist if a list.
-                future = executor.submit(get_song_lyrics, song=song, artist=artist)
+                future = executor.submit(get_song_lyrics, genius=genius, song=song, artist=artist)
                 future_to_songtup[future] = (song, artist,)
 
             # Yield from threadpool as jobs are completed.
