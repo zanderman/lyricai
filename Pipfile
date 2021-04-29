@@ -11,6 +11,8 @@ torch = "*"
 matplotlib = "*"
 numpy = "*"
 torchvision = "*"
+nltk = "*"
+pytest = "*"
 
 [dev-packages]
 
